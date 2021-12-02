@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31729.503
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VHS.Backend", "VHS.Backend\VHS.Backend.csproj", "{5FDDBBC5-997C-45FF-85F6-C23235AEFE27}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5FDDBBC5-997C-45FF-85F6-C23235AEFE27}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5FDDBBC5-997C-45FF-85F6-C23235AEFE27}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5FDDBBC5-997C-45FF-85F6-C23235AEFE27}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5FDDBBC5-997C-45FF-85F6-C23235AEFE27}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {FD4F81A6-DDAD-4EAB-B0D6-1D0ED290C64D}
+	EndGlobalSection
+EndGlobal

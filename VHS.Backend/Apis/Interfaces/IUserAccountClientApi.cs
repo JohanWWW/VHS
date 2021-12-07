@@ -6,8 +6,8 @@ using VHS.Backend.Apis.Responses;
 
 namespace VHS.Backend.Apis.Interfaces
 {
-    public interface IAuthorizationClientApi
+    public interface IUserAccountClientApi
     {
-        Task<UserClientResponse> Authorize(string username, string password);
+        Task<VehicleClientResponse> Register(Guid customerId, string vin, string accessToken);
     }
 }

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace VHS.Backend.Apis.Responses
 {
-    public class AuthorizationClientResponse : ClientResponseBase
+    public class UserClientResponse : ClientResponseBase
     {
         public Guid Id { get; set; }
         public string DisplayName { get; set; }

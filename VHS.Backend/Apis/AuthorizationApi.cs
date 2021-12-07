@@ -28,19 +28,19 @@ namespace VHS.Backend.Apis
             };
         }
 
-        public async Task<AuthorizationClientResponse> Authorize(string username, string password)
+        public async Task<UserClientResponse> Authorize(string username, string password)
         {
             Uri requestUri = new($"api/cds/v1.0/user/authenticate?userName={HttpUtility.UrlEncode(username)}&pwd={HttpUtility.UrlEncode(password)}", UriKind.Relative);
             HttpResponseMessage response = await _client.GetAsync(requestUri);
 
             if (!response.IsSuccessStatusCode)
-                return new AuthorizationClientResponse
+                return new UserClientResponse
                 {
                     StatusCode = response.StatusCode,
                     StatusMessage = await response.Content.ReadAsStringAsync()
                 };
 
-            AuthorizationClientResponse clientResponse = JsonSerializer.Deserialize<AuthorizationClientResponse>(await response.Content.ReadAsStringAsync(), new JsonSerializerOptions
+            UserClientResponse clientResponse = JsonSerializer.Deserialize<UserClientResponse>(await response.Content.ReadAsStringAsync(), new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
             });

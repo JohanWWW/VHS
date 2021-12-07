@@ -23,14 +23,14 @@ namespace VHS.Backend.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<AuthorizationEntity>> Authorize([FromQuery] string username, [FromQuery] string password)
+        public async Task<ActionResult<UserEntity>> Authorize([FromQuery] string username, [FromQuery] string password)
         {
             var response = await _authorizationClientApi.Authorize(username, password);
 
             if (!response.IsStatusSuccess)
                 return new StatusCodeResult((int)response.StatusCode);
 
-            return Ok(new AuthorizationEntity
+            return Ok(new UserEntity
             {
                 AccessToken = response.AccessToken,
                 CustomerId = response.CustomerId,

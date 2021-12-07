@@ -17,6 +17,7 @@ namespace VHS.VehicleTest
         Position Position { get; }
         Battery Battery { get; }
 
+        void DriveSimulator();
         bool Beep();
         bool Blink();
         float GetPressure(int index);

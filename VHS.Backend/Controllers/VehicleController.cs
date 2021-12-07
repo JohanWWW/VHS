@@ -28,7 +28,9 @@ namespace VHS.Backend.Controllers
         [HttpGet("status")]
         public ActionResult<IVehicle> Status()
         {
+            _vehicle.DriveSimulator();
             return Ok(_vehicle);
         }
+        
     }
 }

@@ -5,10 +5,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using VHS.Backend.Apis;
+using VHS.Backend.Apis.Interfaces;
 using VHS.Backend.Entities;
-using VHS.Backend.Exceptions.Http;
-using VHS.Backend.Repositories;
-using VHS.Backend.Repositories.Interfaces;
 
 namespace VHS.Backend.Controllers
 {
@@ -16,24 +15,28 @@ namespace VHS.Backend.Controllers
     [ApiController]
     public class AuthorizationController : ControllerBase
     {
-        private readonly IAuthorizationRepository _authorizationApi;
+        private readonly IAuthorizationClientApi _authorizationClientApi;
 
         public AuthorizationController()
         {
-            _authorizationApi = new AuthorizationApi();
+            _authorizationClientApi = new AuthorizationApi();
         }
 
         [HttpGet]
-        public async Task<ActionResult<AuthorizationResponseEntity>> Authorize(string username, string password)
+        public async Task<ActionResult<AuthorizationEntity>> Authorize([FromQuery] string username, [FromQuery] string password)
         {
-            try
+            var response = await _authorizationClientApi.Authorize(username, password);
+
+            if (!response.IsStatusSuccess)
+                return new StatusCodeResult((int)response.StatusCode);
+
+            return Ok(new AuthorizationEntity
             {
-                return await _authorizationApi.Authorize(username, password);
-            }
-            catch (HttpResponseException e)
-            {
-                return new StatusCodeResult((int)e.StatusCode);
-            }
+                AccessToken = response.AccessToken,
+                CustomerId = response.CustomerId,
+                DisplayName = response.DisplayName,
+                Id = response.Id
+            });
         }
     }
 }

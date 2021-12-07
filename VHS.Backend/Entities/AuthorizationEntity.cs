@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace VHS.Backend.Entities
 {
-    public class AuthorizationResponseEntity
+    public class AuthorizationEntity
     {
         public Guid Id { get; set; }
         public string DisplayName { get; set; }

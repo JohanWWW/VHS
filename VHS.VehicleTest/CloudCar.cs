@@ -63,5 +63,10 @@ namespace VHS.VehicleTest
             _position.Longitude = (float)GetRandomNumber(11.1712, 23.15645);
 
         }
+
+        public void PostLog()
+        {
+            
+        }
     }
 }

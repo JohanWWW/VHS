@@ -21,6 +21,7 @@ namespace VHS.VehicleTest
         bool Beep();
         bool Blink();
         float GetPressure(int index);
+        void PostLog();
     }
 
     public struct Position

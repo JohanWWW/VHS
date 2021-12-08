@@ -1,16 +1,14 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpsPolicy;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using VHS.Backend.Apis;
+using VHS.Backend.Apis.Interfaces;
+using VHS.Backend.Repositories;
+using VHS.Backend.Repositories.Interfaces;
+using VHS.VehicleTest;
 
 namespace VHS.Backend
 {
@@ -32,6 +30,11 @@ namespace VHS.Backend
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "VHS.Backend", Version = "v1" });
             });
+
+            // Singletons
+            services.AddSingleton<IAuthorizationClientApi, AuthorizationApi>();
+            services.AddSingleton<IVehicle, CloudCar>();
+            services.AddSingleton<IDriveLogRepository, FakeDriveLogDB>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

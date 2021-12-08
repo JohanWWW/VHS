@@ -1,11 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
+﻿using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
-using VHS.Backend.Apis;
 using VHS.Backend.Apis.Interfaces;
 using VHS.Backend.Entities;
 
@@ -17,9 +11,9 @@ namespace VHS.Backend.Controllers
     {
         private readonly IAuthorizationClientApi _authorizationClientApi;
 
-        public AuthorizationController()
+        public AuthorizationController(IAuthorizationClientApi authorizationClientApi)
         {
-            _authorizationClientApi = new AuthorizationApi();
+            _authorizationClientApi = authorizationClientApi;
         }
 
         [HttpGet]

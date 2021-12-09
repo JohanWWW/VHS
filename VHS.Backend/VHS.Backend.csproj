@@ -14,6 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\VHS.Utility\VHS.Utility.csproj" />
     <ProjectReference Include="..\VHS.VehicleTest\VHS.VehicleTest.csproj" />
   </ItemGroup>
 

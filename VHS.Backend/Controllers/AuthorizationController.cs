@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 using VHS.Backend.Apis.Interfaces;
+using VHS.Backend.Apis.Responses;
 using VHS.Backend.Entities;
+using VHS.Utility.Mapping;
 
 namespace VHS.Backend.Controllers
 {
@@ -24,13 +26,7 @@ namespace VHS.Backend.Controllers
             if (!response.IsStatusSuccess)
                 return new StatusCodeResult((int)response.StatusCode);
 
-            return Ok(new UserEntity
-            {
-                AccessToken = response.AccessToken,
-                CustomerId = response.CustomerId,
-                DisplayName = response.DisplayName,
-                Id = response.Id
-            });
+            return Ok(AutoMapper.Map<UserClientResponse, UserEntity>(response));
         }
     }
 }

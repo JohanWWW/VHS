@@ -5,15 +5,17 @@ using System.Linq;
 using System.Threading.Tasks;
 using VHS.Backend.Entities;
 using VHS.Backend.Repositories.Interfaces;
+using VHS.Utility.Mapping;
 using VHS.VehicleTest;
 
 namespace VHS.Backend.Repositories
 {
     public class FakeDriveLogDB : IDriveLogRepository
     {
-        private static readonly IFormatProvider INVARIANT_CULTURE   = System.Globalization.CultureInfo.InvariantCulture;
         private const string DB_FILE_PATH                           = "fakedrivelog.db";
         private const string SEPARATOR_TOKEN                        = ",";
+
+        private static readonly IFormatProvider _culture            = System.Globalization.CultureInfo.InvariantCulture;
 
         private readonly IDictionary<string, IList<DBLogEntity>> _storage;
 
@@ -40,12 +42,12 @@ namespace VHS.Backend.Repositories
                     Mileage     = int.Parse(cols[4]),
                     Position    = new Position
                     {
-                        Latitude    = float.Parse(cols[5], INVARIANT_CULTURE),
-                        Longitude   = float.Parse(cols[6], INVARIANT_CULTURE)
+                        Latitude    = float.Parse(cols[5], _culture),
+                        Longitude   = float.Parse(cols[6], _culture)
                     },
                     Battery     = new Battery
                     {
-                        Level       = float.Parse(cols[7], INVARIANT_CULTURE)
+                        Level       = float.Parse(cols[7], _culture)
                     }
                 });
             }
@@ -75,15 +77,9 @@ namespace VHS.Backend.Repositories
 
                 Guid id = Guid.NewGuid();
 
-                var log = new DBLogEntity
-                {
-                    Id          = id,
-                    LogDate     = DateTimeOffset.UtcNow,
-                    IsDriving   = logEntry.IsDriving,
-                    Mileage     = logEntry.Mileage,
-                    Position    = logEntry.Position,
-                    Battery     = logEntry.Battery
-                };
+                DBLogEntity log = AutoMapper.Map<VehicleLogEntity, DBLogEntity>(logEntry);
+                log.Id = id;
+                log.LogDate = DateTimeOffset.Now;
 
                 WriteToCache(vin, log);
                 WriteToFile(vin, log);
@@ -106,9 +102,9 @@ namespace VHS.Backend.Repositories
                 logEntry.LogDate.ToString("O"),
                 logEntry.IsDriving ? "1" : "0",
                 logEntry.Mileage.ToString(),
-                logEntry.Position.Latitude.ToString(INVARIANT_CULTURE),
-                logEntry.Position.Longitude.ToString(INVARIANT_CULTURE),
-                logEntry.Battery.Level.ToString(INVARIANT_CULTURE)
+                logEntry.Position.Latitude.ToString(_culture),
+                logEntry.Position.Longitude.ToString(_culture),
+                logEntry.Battery.Level.ToString(_culture)
             ));
             fileOut.Close();
         }

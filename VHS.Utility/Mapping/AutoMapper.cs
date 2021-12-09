@@ -30,6 +30,9 @@ namespace VHS.Utility.Mapping
             object outValue;
             PropertyInfo[] props;
 
+            if (inValue is null)
+                return null;
+
             outValue    = Activator.CreateInstance(tout);
             props       = tin.GetProperties();
 
@@ -37,8 +40,12 @@ namespace VHS.Utility.Mapping
             {
                 PropertyInfo outProp    = tout.GetProperty(inProp.Name);
 
+                // Do not set property value if it does not have a setter
+                if (inProp.SetMethod is null)
+                    continue;
+
                 // TODO: Map collection types
-                if (inProp.PropertyType.GetInterface(nameof(IEnumerable)) is not null)
+                if (inProp.PropertyType != typeof(string) && inProp.PropertyType.GetInterface(nameof(IEnumerable)) is not null)
                     throw new NotSupportedException("Collection type mapping is not yet supported");
 
                 if (_doNotTraverseTypes.Contains(inProp.PropertyType) || inProp.PropertyType.IsPrimitive || inProp.PropertyType.IsValueType)

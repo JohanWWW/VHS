@@ -33,6 +33,9 @@ namespace VHS.Backend
 
             // Singletons
             services.AddSingleton<IAuthorizationClientApi, AuthorizationApi>();
+            services.AddSingleton<IUserAccountClientApi, UserAccountApi>();
+            services.AddSingleton<IVehicleClientApi, FakeVehicleHookApi>();
+
             services.AddSingleton<IVehicle, CloudCar>();
             services.AddSingleton<IDriveLogRepository, FakeDriveLogDB>();
         }

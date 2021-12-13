@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using VHS.Backend.Entities;
 using VHS.Backend.Repositories.Interfaces;
 using VHS.Utility.Mapping;
+using VHS.Utility.Types;
 using VHS.VehicleTest;
 
 namespace VHS.Backend.Repositories
@@ -40,7 +41,7 @@ namespace VHS.Backend.Repositories
                     LogDate     = DateTimeOffset.Parse(cols[2]),
                     IsDriving   = int.Parse(cols[3]) is not 0,
                     Mileage     = int.Parse(cols[4]),
-                    Position    = new Position
+                    Position    = new GeoCoordinate
                     {
                         Latitude    = float.Parse(cols[5], _culture),
                         Longitude   = float.Parse(cols[6], _culture)

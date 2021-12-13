@@ -2,8 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using VHS.Backend.Apis.Interfaces;
+using VHS.Backend.Apis.Responses;
 using VHS.Backend.Entities;
 using VHS.Backend.Repositories.Interfaces;
+using VHS.Utility.Types;
 using VHS.VehicleTest;
 
 namespace VHS.Backend.Controllers
@@ -14,24 +17,50 @@ namespace VHS.Backend.Controllers
     {
         private readonly IVehicle _vehicle;
         private readonly IDriveLogRepository _driveLogRepository;
+        private readonly IVehicleClientApi _vehicleClientApi;
 
-        public VehicleController(IVehicle vehicle, IDriveLogRepository driveLogRepository)
+        public VehicleController(IVehicle vehicle, IDriveLogRepository driveLogRepository, IVehicleClientApi vehicleClientApi)
         {
             _vehicle = vehicle;
             _driveLogRepository = driveLogRepository;
+            _vehicleClientApi = vehicleClientApi;
         }
 
-        [HttpGet("blinkAndBeep")]
-        public ActionResult<bool> Beep()
+        [Obsolete]
+        [HttpGet("blinkAndBeep/{vin}")]
+        public async Task<ActionResult<bool>> Beep([FromRoute] string vin)
         {
-            return Ok(_vehicle.Blink() && _vehicle.Beep());
+            return Ok(await _vehicleClientApi.Beep(vin) && await _vehicleClientApi.Blink(vin));
         }
 
-        [HttpGet("status")]
-        public ActionResult<IVehicle> Status()
+        /// <summary>
+        /// This endpoint is called whenever the client wants to ping (activate beeper and hazards)
+        /// the vehicle
+        /// </summary>
+        /// <param name="clientPosition">The clients current position</param>
+        [HttpPost("ping/{vin}")]
+        public async Task<ActionResult<bool>> Ping([FromRoute] string vin, [FromBody] GeoCoordinate clientPosition)
         {
-            _vehicle.DriveSimulator();
-            return Ok(_vehicle);
+            GeoCoordinate? vehiclePosition = await _vehicleClientApi.GetCurrentPosition(vin);
+            if (vehiclePosition is null)
+                return NotFound($"Failed to establish a connection with car");
+
+            double distance = GeoCoordinate.GetMetricDistance(clientPosition, (GeoCoordinate)vehiclePosition);
+            if (distance > 0.200d)
+                return NotFound($"Too far from car");
+
+            return Ok(await _vehicleClientApi.Beep(vin) && await _vehicleClientApi.Blink(vin));
+        }
+
+        [HttpGet("status/{vin}")]
+        public async Task<ActionResult<VehicleStatusResponse>> Status([FromRoute] string vin)
+        {
+            VehicleStatusResponse response = await _vehicleClientApi.GetStatus(vin);
+            
+            if (response is null)
+                return NotFound($"Failed to establish a connection with car");
+
+            return Ok(response);
         }
         
         [HttpGet("logs/{vin}")]

@@ -14,21 +14,29 @@ namespace VHS.Backend.Controllers
     public class UserAccountController : ControllerBase
     {
         private readonly IUserAccountClientApi _userAccountClientApi;
+        private readonly IVehicleClientApi _vehicleClientApi;
 
-        public UserAccountController()
+        public UserAccountController(IUserAccountClientApi userAccountClientApi, IVehicleClientApi vehicleClientApi)
         {
-            _userAccountClientApi = new UserAccountApi();
+            _userAccountClientApi = userAccountClientApi;
+            _vehicleClientApi = vehicleClientApi;
         }
 
-        [HttpPost("/{vin}/{customerId}/{accessToken}")]
+        [HttpPost("register/{vin}/{customerId}/{accessToken}")]
         public async Task<ActionResult<VehicleEntity>> Register([FromRoute] string vin, [FromRoute] Guid customerId, [FromRoute] string accessToken)
         {
-            var response = await _userAccountClientApi.Register(customerId, vin, accessToken);
+            VehicleClientResponse response;
+            if (await _vehicleClientApi.AddVehicle(vin))
+            {
+                response = await _userAccountClientApi.Register(customerId, vin, accessToken);
 
-            if (!response.IsStatusSuccess)
-                return new StatusCodeResult((int)response.StatusCode);
+                if (!response.IsStatusSuccess)
+                    return new StatusCodeResult((int)response.StatusCode);
 
-            return Ok(AutoMapper.Map<VehicleClientResponse, VehicleEntity>(response));
+                return Ok(AutoMapper.Map<VehicleClientResponse, VehicleEntity>(response));
+            }
+
+            return BadRequest();
         }
     }
 }

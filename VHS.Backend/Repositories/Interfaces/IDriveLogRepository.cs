@@ -8,6 +8,6 @@ namespace VHS.Backend.Repositories.Interfaces
     public interface IDriveLogRepository
     {
         Task<IList<VehicleLogEntity>> GetLogs(string vin, DateTime? filterStart, DateTime? filterEnd);
-        Task<Guid> PostLog(string vin, VehicleLogEntity logEntry);
+        Task<Guid?> PostLog(string vin, VehicleLogEntity logEntry);
     }
 }

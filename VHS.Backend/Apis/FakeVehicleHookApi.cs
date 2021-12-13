@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using VHS.Backend.Apis.Interfaces;
 using VHS.Backend.Apis.Responses;
+using VHS.Backend.HostedServices.Interfaces;
 using VHS.Utility.Mapping;
 using VHS.Utility.Types;
 using VHS.VehicleTest;
@@ -14,7 +15,7 @@ using VHS.VehicleTest;
 namespace VHS.Backend.Apis
 {
     /// <summary>
-    /// Represents a fake direct communication with a car
+    /// Represents a direct communication with a physical car. It also represents communication with database.
     /// </summary>
     public class FakeVehicleHookApi : IVehicleClientApi
     {
@@ -22,6 +23,7 @@ namespace VHS.Backend.Apis
         private const string DB_FILE = "fakevehicles.db";
 
         private readonly DbConnection _connection;
+        private readonly IVehicleSimulatorBackgroundService _vehicleSimulatorService;
 
         ~FakeVehicleHookApi()
         {
@@ -29,8 +31,9 @@ namespace VHS.Backend.Apis
             _connection.Dispose();
         }
 
-        public FakeVehicleHookApi()
+        public FakeVehicleHookApi(IVehicleSimulatorBackgroundService vehicleSimulatorService)
         {
+            _vehicleSimulatorService = vehicleSimulatorService;
             _connection = new SqliteConnection(CONNECTION_STRING);
             if (!File.Exists(DB_FILE))
             {
@@ -39,6 +42,20 @@ namespace VHS.Backend.Apis
                 return;
             }
             _connection.Open();
+
+            foreach (string vin in GetVins())
+            {
+                async void onPositionUpdated(GeoCoordinate? coord)
+                {
+                    // If vehicle does not exist, unsubscribe from events
+                    if (!await Exists(vin))
+                        _vehicleSimulatorService.PositionUpdated -= onPositionUpdated;
+
+                    await UpdateCurrentPosition(vin, coord);
+                }
+
+                _vehicleSimulatorService.PositionUpdated += onPositionUpdated;
+            }
         }
 
         public async Task<bool> Beep(string vin)
@@ -93,16 +110,17 @@ where v.Vin = $vin;
 @"
 select
     v.Vin,
-    v.Latitude,
-    v.Longitude,
-    v.Mileage,
-    v.FrontLeftTire,
-    v.FrontRightTire,
-    v.BackLeftTire,
-    v.BackRightTire,
-    v.IsLocked,
-    v.IsAlarmActivated
-from Vehicle as v
+    s.Latitude,
+    s.Longitude,
+    s.Mileage,
+    s.FrontLeftTire,
+    s.FrontRightTire,
+    s.BackLeftTire,
+    s.BackRightTire,
+    s.IsLocked,
+    s.IsAlarmActivated
+from State as s
+join Vehicle as v on s.Id = v.StateId
 where v.Vin = $vin;
 ";
             DbParameter vinParameter = cmd.CreateParameter();
@@ -148,12 +166,11 @@ where v.Vin = $vin;
             if (await Exists(vin))
                 return false;
 
-            DbCommand cmd = _connection.CreateCommand();
-            cmd.CommandText =
+            long stateId;
+            DbCommand addStateCmd = _connection.CreateCommand();
+            addStateCmd.CommandText =
 @"
-insert into Vehicle
-values (
-    $vin, 
+insert into State (Latitude, Longitude, Mileage, FrontLeftTire, FrontRightTire, BackLeftTire, BackRightTire, IsLocked, IsAlarmActivated) values (
     $latitude, 
     $longitude, 
     $mileage, 
@@ -165,30 +182,84 @@ values (
     $isAlarmActivated
 );
 ";
-            
 
-            cmd.Parameters.Add(CreateDbParameter(cmd, "$vin", vin));
-            cmd.Parameters.Add(CreateDbParameter(cmd, "$latitude", .0f));
-            cmd.Parameters.Add(CreateDbParameter(cmd, "$longitude", .0f));
-            cmd.Parameters.Add(CreateDbParameter(cmd, "$mileage", 0));
-            cmd.Parameters.Add(CreateDbParameter(cmd, "$frontLeftTire", .0f));
-            cmd.Parameters.Add(CreateDbParameter(cmd, "$frontRightTire", .0f));
-            cmd.Parameters.Add(CreateDbParameter(cmd, "$backLeftTire", .0f));
-            cmd.Parameters.Add(CreateDbParameter(cmd, "$backRightTire", .0f));
-            cmd.Parameters.Add(CreateDbParameter(cmd, "$isLocked", false));
-            cmd.Parameters.Add(CreateDbParameter(cmd, "$isAlarmActivated", false));
+            addStateCmd.Parameters.Add(CreateDbParameter(addStateCmd, "$latitude", .0f));
+            addStateCmd.Parameters.Add(CreateDbParameter(addStateCmd, "$longitude", .0f));
+            addStateCmd.Parameters.Add(CreateDbParameter(addStateCmd, "$mileage", 0));
+            addStateCmd.Parameters.Add(CreateDbParameter(addStateCmd, "$frontLeftTire", .0f));
+            addStateCmd.Parameters.Add(CreateDbParameter(addStateCmd, "$frontRightTire", .0f));
+            addStateCmd.Parameters.Add(CreateDbParameter(addStateCmd, "$backLeftTire", .0f));
+            addStateCmd.Parameters.Add(CreateDbParameter(addStateCmd, "$backRightTire", .0f));
+            addStateCmd.Parameters.Add(CreateDbParameter(addStateCmd, "$isLocked", false));
+            addStateCmd.Parameters.Add(CreateDbParameter(addStateCmd, "$isAlarmActivated", false));
+            _ = await addStateCmd.ExecuteNonQueryAsync();
 
-            _ = await cmd.ExecuteNonQueryAsync();
+            DbCommand lastInsertIdCmd = _connection.CreateCommand();
+            lastInsertIdCmd.CommandText = "select last_insert_rowid()";
+            stateId = (long)await lastInsertIdCmd.ExecuteScalarAsync();
+
+            DbCommand addVehicleCmd = _connection.CreateCommand();
+            addVehicleCmd.CommandText =
+@"
+insert into Vehicle values (
+    $vin,
+    $stateId
+);
+";
+
+            addVehicleCmd.Parameters.Add(CreateDbParameter(addVehicleCmd, "$vin", vin));
+            addVehicleCmd.Parameters.Add(CreateDbParameter(addVehicleCmd, "$stateId", stateId));
+            _ = await addVehicleCmd.ExecuteNonQueryAsync();
+
+            async void onPositionUpdated(GeoCoordinate? coord)
+            {
+                // If vehicle does not exist, unsubscribe from events
+                if (!await Exists(vin))
+                    _vehicleSimulatorService.PositionUpdated -= onPositionUpdated;
+
+                await UpdateCurrentPosition(vin, coord);
+            }
+
+            _vehicleSimulatorService.PositionUpdated += onPositionUpdated;
 
             return true;
         }
 
-        private async Task<bool> Exists(string vin)
+        public async Task<bool> Exists(string vin)
         {
             DbCommand cmd = _connection.CreateCommand();
             cmd.CommandText = "select * from Vehicle as v where v.Vin = $vin;";
             cmd.Parameters.Add(CreateDbParameter(cmd, "$vin", vin));
             return await cmd.ExecuteScalarAsync() is not null;
+        }
+
+        private IEnumerable<string> GetVins()
+        {
+            DbCommand getVinsCmd = _connection.CreateCommand();
+            getVinsCmd.CommandText = "select Vin from Vehicle";
+
+            using var reader = getVinsCmd.ExecuteReader();
+
+            while (reader.Read())
+                yield return reader.GetFieldValue<string>(0);
+        }
+
+        private async Task UpdateCurrentPosition(string vin, GeoCoordinate? coord)
+        {
+            long stateId;
+
+            DbCommand getStateIdCmd = _connection.CreateCommand();
+            getStateIdCmd.CommandText = "select StateId from Vehicle where Vin = $vin";
+            getStateIdCmd.Parameters.Add(CreateDbParameter(getStateIdCmd, "$vin", vin));
+
+            stateId = (long)await getStateIdCmd.ExecuteScalarAsync();
+
+            DbCommand updatePosCmd = _connection.CreateCommand();
+            updatePosCmd.CommandText = "update State set Latitude = $lat, Longitude = $lon where Id = $stateId";
+            updatePosCmd.Parameters.Add(CreateDbParameter(updatePosCmd, "$lat", ((GeoCoordinate)coord).Latitude));
+            updatePosCmd.Parameters.Add(CreateDbParameter(updatePosCmd, "$lon", ((GeoCoordinate)coord).Longitude));
+            updatePosCmd.Parameters.Add(CreateDbParameter(updatePosCmd, "$stateId", stateId));
+            _ = await updatePosCmd.ExecuteNonQueryAsync();
         }
 
         private static DbParameter CreateDbParameter(DbCommand cmd, string key, object value)
@@ -201,11 +272,32 @@ values (
 
         private void CreateDb()
         {
+            CreateStateTable();
+            CreateVehicleTable();
+        }
+
+        private void CreateVehicleTable()
+        {
             DbCommand cmd = _connection.CreateCommand();
             cmd.CommandText =
 @"
+
 create table Vehicle (
-    Vin                 text        primary key     not null,
+    Vin     text        primary key not null,
+    StateId integer     not null,
+    foreign key(StateId) references State(Id)
+);
+";
+            _ = cmd.ExecuteNonQuery();
+        }
+
+        private void CreateStateTable()
+        {
+            DbCommand cmd = _connection.CreateCommand();
+            cmd.CommandText =
+@"
+create table State (
+    Id                  INTEGER    PRIMARY KEY     AUTOINCREMENT,
     Latitude            real                        not null,
     Longitude           real                        not null,
     Mileage             integer                     not null,
@@ -219,7 +311,6 @@ create table Vehicle (
 ";
             _ = cmd.ExecuteNonQuery();
         }
-
 
         #region Scoped Types
         private class StatusDBEntity

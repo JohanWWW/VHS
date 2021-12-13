@@ -30,7 +30,7 @@ namespace VHS.Utility.Types
         public override int GetHashCode() => HashCode.Combine(Latitude, Longitude);
 
         public override string ToString() => 
-            $"{{{Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)};{{{Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}}}}}";
+            $"{{{Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}}};{{{Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}}}";
 
         public static double GetMetricDistance(GeoCoordinate a, GeoCoordinate b) =>
             Haversine(a.Latitude, a.Longitude, b.Latitude, b.Longitude);

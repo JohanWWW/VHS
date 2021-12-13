@@ -6,6 +6,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
 using VHS.Backend.Apis;
 using VHS.Backend.Apis.Interfaces;
+using VHS.Backend.HostedServices;
+using VHS.Backend.HostedServices.Interfaces;
 using VHS.Backend.Repositories;
 using VHS.Backend.Repositories.Interfaces;
 using VHS.VehicleTest;
@@ -31,6 +33,7 @@ namespace VHS.Backend
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "VHS.Backend", Version = "v1" });
             });
 
+
             // Singletons
             services.AddSingleton<IAuthorizationClientApi, AuthorizationApi>();
             services.AddSingleton<IUserAccountClientApi, UserAccountApi>();
@@ -38,6 +41,13 @@ namespace VHS.Backend
 
             services.AddSingleton<IVehicle, CloudCar>();
             services.AddSingleton<IDriveLogRepository, FakeDriveLogDB>();
+
+            services.AddSingleton<IVehicleSimulatorBackgroundService>(f =>
+            {
+                var implementation = new VehicleSimulatorBackgroundService();
+                _ = implementation.StartAsync();
+                return implementation;
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

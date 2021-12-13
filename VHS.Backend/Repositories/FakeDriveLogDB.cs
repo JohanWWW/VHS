@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using VHS.Backend.Apis.Interfaces;
 using VHS.Backend.Entities;
+using VHS.Backend.HostedServices.Interfaces;
 using VHS.Backend.Repositories.Interfaces;
 using VHS.Utility.Mapping;
 using VHS.Utility.Types;
@@ -19,9 +21,11 @@ namespace VHS.Backend.Repositories
         private static readonly IFormatProvider _culture            = System.Globalization.CultureInfo.InvariantCulture;
 
         private readonly IDictionary<string, IList<DBLogEntity>> _storage;
+        private readonly IVehicleClientApi _vehicleClientApi;
 
-        public FakeDriveLogDB()
+        public FakeDriveLogDB(IVehicleClientApi vehicleClientApi)
         {
+            _vehicleClientApi = vehicleClientApi;
             _storage = new Dictionary<string, IList<DBLogEntity>>();
 
             if (!File.Exists(DB_FILE_PATH))
@@ -54,39 +58,39 @@ namespace VHS.Backend.Repositories
             }
         }
 
-        public Task<IList<VehicleLogEntity>> GetLogs(string vin, DateTime? filterStart, DateTime? filterEnd)
+        public async Task<IList<VehicleLogEntity>> GetLogs(string vin, DateTime? filterStart, DateTime? filterEnd)
         {
-            return Task.Run<IList<VehicleLogEntity>>(() =>
-            {
-                if (_storage.Count is 0)
-                    return new List<VehicleLogEntity>();
+            if (!await _vehicleClientApi.Exists(vin))
+                return null;
 
-                return _storage[vin]
-                    .Where(entry => entry.LogDate >= (filterStart ?? DateTimeOffset.MinValue) &&
-                                    entry.LogDate < (filterEnd ?? DateTimeOffset.MaxValue))
-                    .Select(entry => (VehicleLogEntity)entry)
-                    .ToList();
-            });
+            if (_storage.Count is 0)
+                return new List<VehicleLogEntity>();
+
+            return _storage[vin]
+                .Where(entry => entry.LogDate >= (filterStart ?? DateTimeOffset.MinValue) &&
+                                entry.LogDate < (filterEnd ?? DateTimeOffset.MaxValue))
+                .Select(entry => (VehicleLogEntity)entry)
+                .ToList();
         }
 
-        public Task<Guid> PostLog(string vin, VehicleLogEntity logEntry)
+        public async Task<Guid?> PostLog(string vin, VehicleLogEntity logEntry)
         {
-            return Task.Run(() =>
-            {
-                if (!IsCached(vin)) // New VIN?
-                    _storage.Add(vin, new List<DBLogEntity>());
+            if (!await _vehicleClientApi.Exists(vin))
+                return null;
 
-                Guid id = Guid.NewGuid();
+            if (!IsCached(vin)) // New VIN?
+                _storage.Add(vin, new List<DBLogEntity>());
 
-                DBLogEntity log = AutoMapper.Map<VehicleLogEntity, DBLogEntity>(logEntry);
-                log.Id = id;
-                log.LogDate = DateTimeOffset.Now;
+            Guid id = Guid.NewGuid();
 
-                WriteToCache(vin, log);
-                WriteToFile(vin, log);
+            DBLogEntity log = AutoMapper.Map<VehicleLogEntity, DBLogEntity>(logEntry);
+            log.Id = id;
+            log.LogDate = DateTimeOffset.Now;
 
-                return id;
-            });
+            WriteToCache(vin, log);
+            WriteToFile(vin, log);
+
+            return id;
         }
 
         /// <summary>

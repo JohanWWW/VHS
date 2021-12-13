@@ -15,5 +15,6 @@ namespace VHS.Backend.Apis.Interfaces
         Task<bool> Blink(string vin);
         Task<bool> Beep(string vin);
         Task<bool> AddVehicle(string vin);
+        Task<bool> Exists(string vin);
     }
 }

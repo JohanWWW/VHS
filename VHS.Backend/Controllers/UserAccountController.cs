@@ -1,10 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using VHS.Backend.Apis;
 using VHS.Backend.Apis.Interfaces;
 using VHS.Backend.Apis.Responses;
 using VHS.Backend.Entities;
+using VHS.Backend.Repositories.Interfaces;
 using VHS.Utility.Mapping;
 
 namespace VHS.Backend.Controllers
@@ -15,11 +17,14 @@ namespace VHS.Backend.Controllers
     {
         private readonly IUserAccountClientApi _userAccountClientApi;
         private readonly IVehicleClientApi _vehicleClientApi;
+        private readonly IDriveLogRepository _driveLogRepoitory;
 
-        public UserAccountController(IUserAccountClientApi userAccountClientApi, IVehicleClientApi vehicleClientApi)
+
+        public UserAccountController(IUserAccountClientApi userAccountClientApi, IVehicleClientApi vehicleClientApi, IDriveLogRepository driveLogRepository)
         {
             _userAccountClientApi = userAccountClientApi;
             _vehicleClientApi = vehicleClientApi;
+            _driveLogRepoitory = driveLogRepository;
         }
 
         [HttpPost("register/{vin}/{customerId}/{accessToken}")]
@@ -37,6 +42,13 @@ namespace VHS.Backend.Controllers
             }
 
             return BadRequest();
+        }
+
+        [HttpGet("Journal/{vin}")]
+
+        public async Task<ActionResult<IList<ResultdriveJournalEntity>>> GetDriveJournal([FromRoute] string vin, [FromQuery] DateTime? start, [FromQuery] DateTime? end) { 
+        var result = await _driveLogRepoitory.GetDriveJournal(vin, start, end);
+            return Ok(result);
         }
     }
 }

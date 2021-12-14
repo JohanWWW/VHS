@@ -53,8 +53,15 @@ namespace VHS.Backend.Apis
 
                     await UpdateCurrentPosition(vin, coord);
                 }
+                async void OnDistanceUpdated(DistanceEventArgs args)
+                {
+                    if (!await Exists(vin))
+                        _vehicleSimulatorService.DistanceUpdated -= OnDistanceUpdated;
+                    await UpdateMilage(vin, args.TotalDistance);
+                }
 
                 _vehicleSimulatorService.PositionUpdated += onPositionUpdated;
+                _vehicleSimulatorService.DistanceUpdated += OnDistanceUpdated;
             }
         }
 
@@ -219,8 +226,17 @@ insert into Vehicle values (
 
                 await UpdateCurrentPosition(vin, coord);
             }
+            async void OnDistanceUpdated(DistanceEventArgs args)
+            {
+                if (!await Exists(vin))
+                    _vehicleSimulatorService.DistanceUpdated -= OnDistanceUpdated;
+                await UpdateMilage(vin, args.Distance);
+            }
 
-            _vehicleSimulatorService.PositionUpdated += onPositionUpdated;
+                _vehicleSimulatorService.PositionUpdated += onPositionUpdated;
+                _vehicleSimulatorService.DistanceUpdated += OnDistanceUpdated;
+
+
 
             return true;
         }
@@ -260,6 +276,22 @@ insert into Vehicle values (
             updatePosCmd.Parameters.Add(CreateDbParameter(updatePosCmd, "$lon", ((GeoCoordinate)coord).Longitude));
             updatePosCmd.Parameters.Add(CreateDbParameter(updatePosCmd, "$stateId", stateId));
             _ = await updatePosCmd.ExecuteNonQueryAsync();
+        }
+        private async Task UpdateMilage(string vin, double distance)
+        {
+            long stateId;
+            DbCommand getStateIdCmd = _connection.CreateCommand();
+            getStateIdCmd.CommandText = "select StateId from Vehicle where Vin = $vin";
+            getStateIdCmd.Parameters.Add(CreateDbParameter(getStateIdCmd, "$vin", vin));
+
+            stateId = (long)await getStateIdCmd.ExecuteScalarAsync();
+
+            DbCommand updateMilCmd = _connection.CreateCommand();
+            updateMilCmd.CommandText = "update State set Mileage = $mileage where Id = $stateId";
+            updateMilCmd.Parameters.Add(CreateDbParameter(updateMilCmd, "$mileage", distance));
+            updateMilCmd.Parameters.Add(CreateDbParameter(updateMilCmd, "$stateId", stateId));
+            _ = await updateMilCmd.ExecuteNonQueryAsync();
+
         }
 
         private static DbParameter CreateDbParameter(DbCommand cmd, string key, object value)

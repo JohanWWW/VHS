@@ -31,8 +31,36 @@ namespace VHS.Backend.HostedServices
                 }
             }
         }
+        private double _distance = 0;
+        public double Distance
+        {
 
+            get => _distance;
+            private set
+            {
+                if (value != _distance)
+                {
+                    _distance = value;
+                    DistanceUpdated?.Invoke(new DistanceEventArgs(_distance, _totalDistance));
+                }
+            }
+        }
+        private double _totalDistance = 0;
+        public double TotalDistance
+        {
+
+            get => _totalDistance;
+            private set
+            {
+                if (value != _totalDistance)
+                {
+                    _totalDistance = value;
+                    DistanceUpdated?.Invoke(new DistanceEventArgs(_distance, _totalDistance));
+                }
+            }
+        }
         public event PositionUpdatedEventHandler PositionUpdated;
+        public event DistanceUpdatedEventHandler DistanceUpdated;
 
         public VehicleSimulatorBackgroundService()
         {
@@ -40,6 +68,7 @@ namespace VHS.Backend.HostedServices
 
         public Task StartAsync()
         {
+            
             DateTime startdt;
             IEnumerable<GeoCoordinate> coords;
 
@@ -58,8 +87,11 @@ namespace VHS.Backend.HostedServices
                             {
                                 float t = (float)i / RESOLUTION;
                                 GeoCoordinate transition = Lerp((GeoCoordinate)Position, coord, t);
+                                double d = GeoCoordinate.GetMetricDistance((GeoCoordinate)Position, coord);
                                 await Task.Delay(10);
 
+                                TotalDistance += d;
+                                Distance = d;
                                 Position = coord;
                             }
                         }

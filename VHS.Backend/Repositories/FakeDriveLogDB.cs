@@ -22,9 +22,10 @@ namespace VHS.Backend.Repositories
 
         private readonly IDictionary<string, IList<DBLogEntity>> _storage;
         private readonly IVehicleClientApi _vehicleClientApi;
-
-        public FakeDriveLogDB(IVehicleClientApi vehicleClientApi)
+        private readonly IVehicleSimulatorBackgroundService _vehicleSimulatorBackgroundService;
+        public FakeDriveLogDB(IVehicleClientApi vehicleClientApi, IVehicleSimulatorBackgroundService vehicleSimulatorBackgroundService)
         {
+            _vehicleSimulatorBackgroundService = vehicleSimulatorBackgroundService;
             _vehicleClientApi = vehicleClientApi;
             _storage = new Dictionary<string, IList<DBLogEntity>>();
 
@@ -84,8 +85,10 @@ namespace VHS.Backend.Repositories
             Guid id = Guid.NewGuid();
 
             DBLogEntity log = AutoMapper.Map<VehicleLogEntity, DBLogEntity>(logEntry);
+
             log.Id = id;
             log.LogDate = DateTimeOffset.Now;
+            log.Position = (GeoCoordinate)_vehicleSimulatorBackgroundService.Position;
 
             WriteToCache(vin, log);
             WriteToFile(vin, log);
@@ -127,10 +130,39 @@ namespace VHS.Backend.Repositories
 
         private bool IsCached(string vin) => _storage.ContainsKey(vin);
 
+        public async Task<IList<ResultdriveJournalEntity>> GetDriveJournal(string vin, DateTime? filterStart, DateTime? filterEnd)
+        {
+
+
+            IList<VehicleLogEntity> logs = await GetLogs(vin, filterStart, filterEnd);
+
+            var enumerator = logs.GetEnumerator();
+
+            var journals = new List<ResultdriveJournalEntity>();
+
+            while (enumerator.MoveNext())
+            {
+                var startLog = enumerator.Current;
+                enumerator.MoveNext();
+                var endLog = enumerator.Current;
+                ResultdriveJournalEntity result = new ResultdriveJournalEntity
+                {
+                    EndTime = endLog.LogDate,
+                    StartTime = startLog.LogDate,
+                    TotalDistance = endLog.Mileage - startLog.Mileage,
+                    EnergyConsumption = startLog.Battery.Level - endLog.Battery.Level,
+                };
+                journals.Add(result);
+            }
+            return journals;
+        }
+
         #region Scoped Types
         private class DBLogEntity : VehicleLogEntity
         {
             public Guid Id { get; set; }
+
+            public GeoCoordinate Position { get; set; }
         }
         #endregion
     }

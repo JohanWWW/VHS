@@ -20,9 +20,9 @@ namespace VHS.Backend.HostedServices.Interfaces
     {
         double Distance { get; }
         GeoCoordinate? Position { get; }
-        public event DistanceUpdatedEventHandler DistanceUpdated;
+        double BatteryLevel { get; }
 
-
-        public event PositionUpdatedEventHandler PositionUpdated;
+        event DistanceUpdatedEventHandler DistanceUpdated;
+        event PositionUpdatedEventHandler PositionUpdated;
     }
 }

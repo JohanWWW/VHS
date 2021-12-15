@@ -15,6 +15,7 @@ namespace VHS.Backend.Entities
         public TirePressure Tires { get; set; }
         public bool IsLocked { get; set; }
         public bool IsAlarmActivated { get; set; }
+        public bool IsDriving { get; set; }
 
         public class TirePressure
         {

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using VHS.Backend.Apis.Interfaces;
 using VHS.Backend.Apis.Responses;
 using VHS.Backend.HostedServices.Interfaces;
+using VHS.Backend.Repositories.Interfaces;
 using VHS.Utility.Mapping;
 using VHS.Utility.Types;
 using VHS.VehicleTest;
@@ -24,6 +25,7 @@ namespace VHS.Backend.Apis
 
         private readonly DbConnection _connection;
         private readonly IVehicleSimulatorBackgroundService _vehicleSimulatorService;
+        private readonly IDriveLogRepository _driveLogRepository;
 
         ~FakeVehicleHookApi()
         {
@@ -31,9 +33,10 @@ namespace VHS.Backend.Apis
             _connection.Dispose();
         }
 
-        public FakeVehicleHookApi(IVehicleSimulatorBackgroundService vehicleSimulatorService)
+        public FakeVehicleHookApi(IVehicleSimulatorBackgroundService vehicleSimulatorService, IDriveLogRepository driveLogRepository)
         {
             _vehicleSimulatorService = vehicleSimulatorService;
+            _driveLogRepository = driveLogRepository;
             _connection = new SqliteConnection(CONNECTION_STRING);
             if (!File.Exists(DB_FILE))
             {
@@ -44,25 +47,7 @@ namespace VHS.Backend.Apis
             _connection.Open();
 
             foreach (string vin in GetVins())
-            {
-                async void onPositionUpdated(GeoCoordinate? coord)
-                {
-                    // If vehicle does not exist, unsubscribe from events
-                    if (!await Exists(vin))
-                        _vehicleSimulatorService.PositionUpdated -= onPositionUpdated;
-
-                    await UpdateCurrentPosition(vin, coord);
-                }
-                async void OnDistanceUpdated(DistanceEventArgs args)
-                {
-                    if (!await Exists(vin))
-                        _vehicleSimulatorService.DistanceUpdated -= OnDistanceUpdated;
-                    await UpdateMilage(vin, args.TotalDistance);
-                }
-
-                _vehicleSimulatorService.PositionUpdated += onPositionUpdated;
-                _vehicleSimulatorService.DistanceUpdated += OnDistanceUpdated;
-            }
+                SubscribeOnSimulatorEvents(vin);
         }
 
         public async Task<bool> Beep(string vin)
@@ -81,19 +66,23 @@ namespace VHS.Backend.Apis
 
         public async Task<GeoCoordinate?> GetCurrentPosition(string vin)
         {
+            long stateId;
+
+            DbCommand getStateId = _connection.CreateCommand();
+            getStateId.CommandText = "select StateId from Vehicle where Vin = $vin";
+            getStateId.Parameters.Add(CreateDbParameter(getStateId, "$vin", vin));
+            stateId = (long)await getStateId.ExecuteScalarAsync();
+
             GeoCoordinate? position = null;
             DbCommand cmd = _connection.CreateCommand();
             cmd.CommandText =
 @"
-select v.Latitude, v.Longitude
-from Vehicle as v
-where v.Vin = $vin;
+select s.Latitude, s.Longitude
+from State as s
+where s.Id = $stateId;
 ";
-            DbParameter vinParameter = cmd.CreateParameter();
-            vinParameter.ParameterName = "$vin";
-            vinParameter.Value = vin;
-            cmd.Parameters.Add(vinParameter);
 
+            cmd.Parameters.Add(CreateDbParameter(cmd, "$stateId", stateId));
             using var reader = await cmd.ExecuteReaderAsync();
             if (reader.Read())
             {
@@ -125,7 +114,8 @@ select
     s.BackLeftTire,
     s.BackRightTire,
     s.IsLocked,
-    s.IsAlarmActivated
+    s.IsAlarmActivated,
+    s.IsDriveInProgress
 from State as s
 join Vehicle as v on s.Id = v.StateId
 where v.Vin = $vin;
@@ -146,7 +136,7 @@ where v.Vin = $vin;
                         Latitude = await reader.GetFieldValueAsync<float>(1),
                         Longitude = await reader.GetFieldValueAsync<float>(2)
                     },
-                    Mileage = await reader.GetFieldValueAsync<int>(3),
+                    Mileage = await reader.GetFieldValueAsync<double>(3),
                     Tires = new StatusDBEntity.TirePressure
                     {
                         FrontLeft = await reader.GetFieldValueAsync<float>(4),
@@ -155,7 +145,8 @@ where v.Vin = $vin;
                         BackRight = await reader.GetFieldValueAsync<float>(7)
                     },
                     IsLocked = await reader.GetFieldValueAsync<bool>(8),
-                    IsAlarmActivated = await reader.GetFieldValueAsync<bool>(9)
+                    IsAlarmActivated = await reader.GetFieldValueAsync<bool>(9),
+                    IsDriveInProgress = await reader.GetFieldValueAsync<bool>(10)
                 };
             }
 
@@ -177,7 +168,7 @@ where v.Vin = $vin;
             DbCommand addStateCmd = _connection.CreateCommand();
             addStateCmd.CommandText =
 @"
-insert into State (Latitude, Longitude, Mileage, FrontLeftTire, FrontRightTire, BackLeftTire, BackRightTire, IsLocked, IsAlarmActivated) values (
+insert into State (Latitude, Longitude, Mileage, FrontLeftTire, FrontRightTire, BackLeftTire, BackRightTire, IsLocked, IsAlarmActivated, IsDriveInProgress) values (
     $latitude, 
     $longitude, 
     $mileage, 
@@ -186,7 +177,8 @@ insert into State (Latitude, Longitude, Mileage, FrontLeftTire, FrontRightTire, 
     $backLeftTire, 
     $backRightTire,
     $isLocked,
-    $isAlarmActivated
+    $isAlarmActivated,
+    $isDriveInProgress
 );
 ";
 
@@ -199,6 +191,7 @@ insert into State (Latitude, Longitude, Mileage, FrontLeftTire, FrontRightTire, 
             addStateCmd.Parameters.Add(CreateDbParameter(addStateCmd, "$backRightTire", .0f));
             addStateCmd.Parameters.Add(CreateDbParameter(addStateCmd, "$isLocked", false));
             addStateCmd.Parameters.Add(CreateDbParameter(addStateCmd, "$isAlarmActivated", false));
+            addStateCmd.Parameters.Add(CreateDbParameter(addStateCmd, "$isDriveInProgress", false));
             _ = await addStateCmd.ExecuteNonQueryAsync();
 
             DbCommand lastInsertIdCmd = _connection.CreateCommand();
@@ -218,25 +211,7 @@ insert into Vehicle values (
             addVehicleCmd.Parameters.Add(CreateDbParameter(addVehicleCmd, "$stateId", stateId));
             _ = await addVehicleCmd.ExecuteNonQueryAsync();
 
-            async void onPositionUpdated(GeoCoordinate? coord)
-            {
-                // If vehicle does not exist, unsubscribe from events
-                if (!await Exists(vin))
-                    _vehicleSimulatorService.PositionUpdated -= onPositionUpdated;
-
-                await UpdateCurrentPosition(vin, coord);
-            }
-            async void OnDistanceUpdated(DistanceEventArgs args)
-            {
-                if (!await Exists(vin))
-                    _vehicleSimulatorService.DistanceUpdated -= OnDistanceUpdated;
-                await UpdateMilage(vin, args.Distance);
-            }
-
-                _vehicleSimulatorService.PositionUpdated += onPositionUpdated;
-                _vehicleSimulatorService.DistanceUpdated += OnDistanceUpdated;
-
-
+            SubscribeOnSimulatorEvents(vin);
 
             return true;
         }
@@ -244,12 +219,12 @@ insert into Vehicle values (
         public async Task<bool> Exists(string vin)
         {
             DbCommand cmd = _connection.CreateCommand();
-            cmd.CommandText = "select * from Vehicle as v where v.Vin = $vin;";
+            cmd.CommandText = "select 1 from Vehicle as v where v.Vin = $vin;";
             cmd.Parameters.Add(CreateDbParameter(cmd, "$vin", vin));
             return await cmd.ExecuteScalarAsync() is not null;
         }
 
-        private IEnumerable<string> GetVins()
+        public IEnumerable<string> GetVins()
         {
             DbCommand getVinsCmd = _connection.CreateCommand();
             getVinsCmd.CommandText = "select Vin from Vehicle";
@@ -258,6 +233,36 @@ insert into Vehicle values (
 
             while (reader.Read())
                 yield return reader.GetFieldValue<string>(0);
+        }
+
+        private void SubscribeOnSimulatorEvents(string vin)
+        {
+            // Local functions
+            async void onPositionUpdated(GeoCoordinate? coord)
+            {
+                // If vehicle does not exist, unsubscribe from events
+                if (!await Exists(vin))
+                    _vehicleSimulatorService.PositionUpdated -= onPositionUpdated;
+
+                var status = await GetStatus(vin);
+                if (!status.IsDriveInProgress)
+                    return;
+
+                GeoCoordinate? previousPosition = status.Position;
+                double distance = GeoCoordinate.GetMetricDistance((GeoCoordinate)previousPosition, (GeoCoordinate)coord);
+
+                await UpdateCurrentPosition(vin, coord);
+                await UpdateMilage(vin, distance);
+
+                _ = await _driveLogRepository.PostLog(vin, new Entities.VehicleLogEntity
+                {
+                    IsDriving = true,
+                    Position = (GeoCoordinate)coord,
+                    Mileage = status.Mileage + distance
+                });
+            }
+
+            _vehicleSimulatorService.PositionUpdated += onPositionUpdated;
         }
 
         private async Task UpdateCurrentPosition(string vin, GeoCoordinate? coord)
@@ -277,21 +282,27 @@ insert into Vehicle values (
             updatePosCmd.Parameters.Add(CreateDbParameter(updatePosCmd, "$stateId", stateId));
             _ = await updatePosCmd.ExecuteNonQueryAsync();
         }
+
         private async Task UpdateMilage(string vin, double distance)
         {
             long stateId;
+            double currentMileage;
+
             DbCommand getStateIdCmd = _connection.CreateCommand();
             getStateIdCmd.CommandText = "select StateId from Vehicle where Vin = $vin";
             getStateIdCmd.Parameters.Add(CreateDbParameter(getStateIdCmd, "$vin", vin));
-
             stateId = (long)await getStateIdCmd.ExecuteScalarAsync();
+
+            DbCommand getMilCmd = _connection.CreateCommand();
+            getMilCmd.CommandText = "select Mileage from State where Id = $stateId";
+            getMilCmd.Parameters.Add(CreateDbParameter(getMilCmd, "$stateId", stateId));
+            currentMileage = (double)await getMilCmd.ExecuteScalarAsync();
 
             DbCommand updateMilCmd = _connection.CreateCommand();
             updateMilCmd.CommandText = "update State set Mileage = $mileage where Id = $stateId";
-            updateMilCmd.Parameters.Add(CreateDbParameter(updateMilCmd, "$mileage", distance));
+            updateMilCmd.Parameters.Add(CreateDbParameter(updateMilCmd, "$mileage", distance + currentMileage));
             updateMilCmd.Parameters.Add(CreateDbParameter(updateMilCmd, "$stateId", stateId));
             _ = await updateMilCmd.ExecuteNonQueryAsync();
-
         }
 
         private static DbParameter CreateDbParameter(DbCommand cmd, string key, object value)
@@ -332,13 +343,14 @@ create table State (
     Id                  INTEGER    PRIMARY KEY     AUTOINCREMENT,
     Latitude            real                        not null,
     Longitude           real                        not null,
-    Mileage             integer                     not null,
+    Mileage             real                        not null,
     FrontLeftTire       real                        not null,
     FrontRightTire      real                        not null,
     BackLeftTire        real                        not null,
     BackRightTire       real                        not null,
-    IsLocked            int                         not null,
-    IsAlarmActivated    int                         not null
+    IsLocked            integer                     not null,
+    IsAlarmActivated    integer                     not null,
+    IsDriveInProgress   integer                     not null
 );
 ";
             _ = cmd.ExecuteNonQuery();
@@ -349,10 +361,11 @@ create table State (
         {
             public string Vin { get; set; }
             public GeoCoordinate Position { get; set; }
-            public int Mileage { get; set; }
+            public double Mileage { get; set; }
             public TirePressure Tires { get; set; }
             public bool IsLocked { get; set; }
             public bool IsAlarmActivated { get; set; }
+            public bool IsDriveInProgress { get; set; }
 
             public class TirePressure
             {

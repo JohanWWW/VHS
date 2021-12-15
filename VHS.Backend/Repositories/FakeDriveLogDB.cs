@@ -21,12 +21,9 @@ namespace VHS.Backend.Repositories
         private static readonly IFormatProvider _culture            = System.Globalization.CultureInfo.InvariantCulture;
 
         private readonly IDictionary<string, IList<DBLogEntity>> _storage;
-        private readonly IVehicleClientApi _vehicleClientApi;
-        private readonly IVehicleSimulatorBackgroundService _vehicleSimulatorBackgroundService;
-        public FakeDriveLogDB(IVehicleClientApi vehicleClientApi, IVehicleSimulatorBackgroundService vehicleSimulatorBackgroundService)
+
+        public FakeDriveLogDB()
         {
-            _vehicleSimulatorBackgroundService = vehicleSimulatorBackgroundService;
-            _vehicleClientApi = vehicleClientApi;
             _storage = new Dictionary<string, IList<DBLogEntity>>();
 
             if (!File.Exists(DB_FILE_PATH))
@@ -40,12 +37,14 @@ namespace VHS.Backend.Repositories
                 if (!_storage.ContainsKey(cols[0]))
                     _storage.Add(cols[0], new List<DBLogEntity>());
 
-                _storage[cols[0]].Add(new DBLogEntity
+                string vin = cols[0];
+
+                _storage[vin].Add(new DBLogEntity
                 {
                     Id          = Guid.Parse(cols[1]),
                     LogDate     = DateTimeOffset.Parse(cols[2]),
                     IsDriving   = int.Parse(cols[3]) is not 0,
-                    Mileage     = int.Parse(cols[4]),
+                    Mileage     = double.Parse(cols[4], _culture),
                     Position    = new GeoCoordinate
                     {
                         Latitude    = float.Parse(cols[5], _culture),
@@ -61,7 +60,7 @@ namespace VHS.Backend.Repositories
 
         public async Task<IList<VehicleLogEntity>> GetLogs(string vin, DateTime? filterStart, DateTime? filterEnd)
         {
-            if (!await _vehicleClientApi.Exists(vin))
+            if (!_storage.ContainsKey(vin))
                 return null;
 
             if (_storage.Count is 0)
@@ -76,19 +75,14 @@ namespace VHS.Backend.Repositories
 
         public async Task<Guid?> PostLog(string vin, VehicleLogEntity logEntry)
         {
-            if (!await _vehicleClientApi.Exists(vin))
-                return null;
-
             if (!IsCached(vin)) // New VIN?
                 _storage.Add(vin, new List<DBLogEntity>());
 
             Guid id = Guid.NewGuid();
 
             DBLogEntity log = AutoMapper.Map<VehicleLogEntity, DBLogEntity>(logEntry);
-
             log.Id = id;
             log.LogDate = DateTimeOffset.Now;
-            log.Position = (GeoCoordinate)_vehicleSimulatorBackgroundService.Position;
 
             WriteToCache(vin, log);
             WriteToFile(vin, log);
@@ -109,7 +103,7 @@ namespace VHS.Backend.Repositories
                 logEntry.Id.ToString(),
                 logEntry.LogDate.ToString("O"),
                 logEntry.IsDriving ? "1" : "0",
-                logEntry.Mileage.ToString(),
+                logEntry.Mileage.ToString(_culture),
                 logEntry.Position.Latitude.ToString(_culture),
                 logEntry.Position.Longitude.ToString(_culture),
                 logEntry.Battery.Level.ToString(_culture)
@@ -132,11 +126,9 @@ namespace VHS.Backend.Repositories
 
         public async Task<IList<ResultdriveJournalEntity>> GetDriveJournal(string vin, DateTime? filterStart, DateTime? filterEnd)
         {
-
-
             IList<VehicleLogEntity> logs = await GetLogs(vin, filterStart, filterEnd);
 
-            var enumerator = logs.GetEnumerator();
+            using var enumerator = logs.GetEnumerator();
 
             var journals = new List<ResultdriveJournalEntity>();
 
@@ -161,8 +153,6 @@ namespace VHS.Backend.Repositories
         private class DBLogEntity : VehicleLogEntity
         {
             public Guid Id { get; set; }
-
-            public GeoCoordinate Position { get; set; }
         }
         #endregion
     }

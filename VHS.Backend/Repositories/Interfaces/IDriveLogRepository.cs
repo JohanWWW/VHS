@@ -9,7 +9,6 @@ namespace VHS.Backend.Repositories.Interfaces
     {
         Task<IList<VehicleLogEntity>> GetLogs(string vin, DateTime? filterStart, DateTime? filterEnd);
         Task<Guid?> PostLog(string vin, VehicleLogEntity logEntry);
-
         Task<IList<ResultdriveJournalEntity>> GetDriveJournal(string vin, DateTime? filterStart, DateTime? filterEnd);
     }
 }

@@ -33,8 +33,10 @@ namespace VHS.Backend
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "VHS.Backend", Version = "v1" });
             });
 
-
             // Singletons
+            var vehicleSimImplementation = new VehicleSimulatorBackgroundService();
+            _ = vehicleSimImplementation.StartAsync();
+
             services.AddSingleton<IAuthorizationClientApi, AuthorizationApi>();
             services.AddSingleton<IUserAccountClientApi, UserAccountApi>();
             services.AddSingleton<IVehicleClientApi, FakeVehicleHookApi>();
@@ -42,12 +44,7 @@ namespace VHS.Backend
             services.AddSingleton<IVehicle, CloudCar>();
             services.AddSingleton<IDriveLogRepository, FakeDriveLogDB>();
 
-            services.AddSingleton<IVehicleSimulatorBackgroundService>(f =>
-            {
-                var implementation = new VehicleSimulatorBackgroundService();
-                _ = implementation.StartAsync();
-                return implementation;
-            });
+            services.AddSingleton<IVehicleSimulatorBackgroundService>(factory => vehicleSimImplementation);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

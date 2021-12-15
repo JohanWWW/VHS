@@ -26,7 +26,7 @@ namespace VHS.Backend.Controllers
             _vehicleClientApi = vehicleClientApi;
         }
 
-        [Obsolete]
+        [Obsolete("Use " + nameof(Ping) + " instead")]
         [HttpGet("blinkAndBeep/{vin}")]
         public async Task<ActionResult<bool>> Beep([FromRoute] string vin)
         {
@@ -69,6 +69,7 @@ namespace VHS.Backend.Controllers
             return Ok(await _driveLogRepository.GetLogs(vin, start, end));
         }
 
+        [Obsolete("Logs are posted by the car not the client")]
         [HttpPost("logs/{vin}")]
         public async Task<ActionResult<Guid>> PostLog([FromRoute] string vin, [FromBody] VehicleLogEntity logEntry)
         {

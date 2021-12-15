@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using VHS.Backend.HostedServices.Interfaces;
@@ -13,12 +14,14 @@ namespace VHS.Backend.HostedServices
     public class VehicleSimulatorBackgroundService : IVehicleSimulatorBackgroundService
     {
         private const string ROUTE_FILE_PATH = "E6_rutt.txt";
-        private const int RESOLUTION = 1000;
+        private const double BATTERY_CONSUMPTION_FACTOR = 0.0015d;
+        //private const double BATTERY_CONSUMPTION_FACTOR = 0.00204081632d;
 
         private static IFormatProvider _culture = System.Globalization.CultureInfo.InvariantCulture;
 
-        private GeoCoordinate? _currentPosition = null;
+        private DateTime _simulationStart;
 
+        private GeoCoordinate? _currentPosition = null;
         public GeoCoordinate? Position
         {
             get => _currentPosition;
@@ -31,10 +34,10 @@ namespace VHS.Backend.HostedServices
                 }
             }
         }
+
         private double _distance = 0;
         public double Distance
         {
-
             get => _distance;
             private set
             {
@@ -45,10 +48,10 @@ namespace VHS.Backend.HostedServices
                 }
             }
         }
+
         private double _totalDistance = 0;
         public double TotalDistance
         {
-
             get => _totalDistance;
             private set
             {
@@ -59,6 +62,21 @@ namespace VHS.Backend.HostedServices
                 }
             }
         }
+
+        private double _batteryLevel = 1d;
+        public double BatteryLevel
+        {
+            get => _batteryLevel;
+            private set
+            {
+                if (value != _batteryLevel)
+                {
+                    _batteryLevel = value;
+                    // TODO: 
+                }
+            }
+        }
+
         public event PositionUpdatedEventHandler PositionUpdated;
         public event DistanceUpdatedEventHandler DistanceUpdated;
 
@@ -69,31 +87,44 @@ namespace VHS.Backend.HostedServices
         public Task StartAsync()
         {
             
-            DateTime startdt;
+            DateTime startts;
             IEnumerable<GeoCoordinate> coords;
 
-            startdt = DateTime.Now;
+            startts = DateTime.Now;
             coords = GetCoordinates();
+
+            var distances = new List<double>();
 
             return Task.Run(
                 action: async () =>
                 {
+                    _simulationStart = DateTime.Now;
+
                     foreach (var coord in coords)
                     {
                         if (Position is not null)
                         {
-                            // Inserts additional points between existing points for smoothness
-                            for (int i = 0; i < RESOLUTION; i++)
-                            {
-                                float t = (float)i / RESOLUTION;
-                                GeoCoordinate transition = Lerp((GeoCoordinate)Position, coord, t);
-                                double d = GeoCoordinate.GetMetricDistance((GeoCoordinate)Position, coord);
-                                await Task.Delay(10);
+                            DateTime ts = DateTime.Now;
+                            double d = GeoCoordinate.GetMetricDistance((GeoCoordinate)Position, coord);
 
-                                TotalDistance += d;
-                                Distance = d;
-                                Position = coord;
-                            }
+                            TotalDistance += d;
+                            Distance = d;
+                            BatteryLevel -= Distance * BATTERY_CONSUMPTION_FACTOR;
+                            Position = coord;
+
+                            StringBuilder sb = new();
+                            sb.Append("Hastighet:\t\t\t\t\t").Append(Math.Round(d / (ts - startts).TotalHours, 1)).Append(" km/h").AppendLine();
+                            sb.Append("Batterinivå:\t\t\t\t").Append(Math.Round(BatteryLevel * 100, 1)).Append('%').AppendLine();
+                            sb.Append("Körsträcka mellan punkter:\t").Append(Math.Round(Distance * 1000, 1)).Append(" m").AppendLine();
+                            sb.Append("Total körsträcka:\t\t\t").Append(Math.Round(TotalDistance, 1)).Append(" km").AppendLine();
+                            sb.Append("Förfluten tid:\t\t\t\t").Append(ts - _simulationStart).Append(" (").Append(Math.Round((ts - _simulationStart).TotalSeconds, 1)).Append(" s)").AppendLine().AppendLine();
+
+                            System.Diagnostics.Debug.Write(sb.ToString());
+
+                            startts = ts;
+
+                            //await Task.Delay(8800);
+                            await Task.Delay(10_084);
                         }
                         else
                             Position = coord;

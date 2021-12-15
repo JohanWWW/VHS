@@ -11,10 +11,11 @@ namespace VHS.Backend.Apis.Responses
     {
         public DateTimeOffset ServerDateTime { get; set; }
         public GeoCoordinate Position { get; set; }
-        public int Mileage { get; set; }
+        public double Mileage { get; set; }
         public TirePressure Tires { get; set; }
         public bool IsLocked { get; set; }
         public bool IsAlarmActivated { get; set; }
+        public bool IsDriveInProgress { get; set; }
 
         public class TirePressure
         {

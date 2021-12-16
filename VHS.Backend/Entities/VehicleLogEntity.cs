@@ -1,6 +1,5 @@
 ﻿using System;
 using VHS.Utility.Types;
-using VHS.VehicleTest;
 
 namespace VHS.Backend.Entities
 {

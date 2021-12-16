@@ -3,20 +3,17 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using VHS.Backend.Apis.Interfaces;
 using VHS.Backend.Entities;
-using VHS.Backend.HostedServices.Interfaces;
 using VHS.Backend.Repositories.Interfaces;
 using VHS.Utility.Mapping;
 using VHS.Utility.Types;
-using VHS.VehicleTest;
 
 namespace VHS.Backend.Repositories
 {
     public class FakeDriveLogDB : IDriveLogRepository
     {
         private const string DB_FILE_PATH                           = "fakedrivelog.db";
-        private const string SEPARATOR_TOKEN                        = ",";
+        private const string CSV_DELIMITER                          = ",";
 
         private static readonly IFormatProvider _culture            = System.Globalization.CultureInfo.InvariantCulture;
 
@@ -32,7 +29,7 @@ namespace VHS.Backend.Repositories
             // Populate runtime storage from file
             foreach (string row in File.ReadLines(DB_FILE_PATH))
             {
-                string[] cols = row.Split(SEPARATOR_TOKEN);
+                string[] cols = row.Split(CSV_DELIMITER);
 
                 if (!_storage.ContainsKey(cols[0]))
                     _storage.Add(cols[0], new List<DBLogEntity>());
@@ -47,12 +44,12 @@ namespace VHS.Backend.Repositories
                     Mileage     = double.Parse(cols[4], _culture),
                     Position    = new GeoCoordinate
                     {
-                        Latitude    = float.Parse(cols[5], _culture),
-                        Longitude   = float.Parse(cols[6], _culture)
+                        Latitude    = double.Parse(cols[5], _culture),
+                        Longitude   = double.Parse(cols[6], _culture)
                     },
                     Battery     = new Battery
                     {
-                        Level       = float.Parse(cols[7], _culture)
+                        Level       = double.Parse(cols[7], _culture)
                     }
                 });
             }
@@ -98,7 +95,7 @@ namespace VHS.Backend.Repositories
         private static void WriteToFile(string vin, DBLogEntity logEntry)
         {
             using StreamWriter fileOut = File.AppendText(DB_FILE_PATH);
-            fileOut.WriteLine(string.Join(SEPARATOR_TOKEN,
+            fileOut.WriteLine(string.Join(CSV_DELIMITER,
                 vin,
                 logEntry.Id.ToString(),
                 logEntry.LogDate.ToString("O"),
@@ -124,29 +121,57 @@ namespace VHS.Backend.Repositories
 
         private bool IsCached(string vin) => _storage.ContainsKey(vin);
 
-        public async Task<IList<ResultdriveJournalEntity>> GetDriveJournal(string vin, DateTime? filterStart, DateTime? filterEnd)
+        public IEnumerable<ResultdriveJournalEntity> GetDriveJournal(string vin, DateTime? filterStart, DateTime? filterEnd)
         {
-            IList<VehicleLogEntity> logs = await GetLogs(vin, filterStart, filterEnd);
+            VehicleLogEntity startEntity, endEntity;
+            IList<VehicleLogEntity> logs = GetLogs(vin, filterStart, filterEnd).Result;
 
-            using var enumerator = logs.GetEnumerator();
-
-            var journals = new List<ResultdriveJournalEntity>();
-
-            while (enumerator.MoveNext())
+            var batches = GetLogEntryBatches(logs);
+            foreach (var batch in batches)
             {
-                var startLog = enumerator.Current;
-                enumerator.MoveNext();
-                var endLog = enumerator.Current;
-                ResultdriveJournalEntity result = new ResultdriveJournalEntity
+                if (batch.Count < 2)
+                    continue;
+
+                startEntity = batch.First();
+                endEntity = batch.Last();
+
+                double averageSpeed = 0d;
+                for (int i = 1; i < batch.Count; i++)
                 {
-                    EndTime = endLog.LogDate,
-                    StartTime = startLog.LogDate,
-                    TotalDistance = endLog.Mileage - startLog.Mileage,
-                    EnergyConsumption = startLog.Battery.Level - endLog.Battery.Level,
+                    double distance = GeoCoordinate.GetMetricDistance(batch[i - 1].Position, batch[i].Position);
+                    averageSpeed += (distance / (batch[i].LogDate - batch[i - 1].LogDate).TotalHours) / batch.Count;
+                }
+
+                yield return new ResultdriveJournalEntity
+                {
+                    StartTime = startEntity.LogDate,
+                    EndTime = endEntity.LogDate,
+                    AverageSpeed = averageSpeed,
+                    TotalDistance = endEntity.Mileage - startEntity.Mileage,
+                    LogCount = batch.Count,
+                    EnergyConsumption = startEntity.Battery.Level - endEntity.Battery.Level
                 };
-                journals.Add(result);
             }
-            return journals;
+        }
+
+        private static IEnumerable<IList<VehicleLogEntity>> GetLogEntryBatches(IList<VehicleLogEntity> logs)
+        {
+            int i = 0;
+            while (i < logs.Count)
+            {
+                var list = new List<VehicleLogEntity> { logs[i] };
+
+                int k = i + 1;
+                while (k < logs.Count && logs[k].IsDriving)
+                {
+                    list.Add(logs[k]);
+                    k++;
+                }
+
+                i = k;
+
+                yield return list;
+            }
         }
 
         #region Scoped Types

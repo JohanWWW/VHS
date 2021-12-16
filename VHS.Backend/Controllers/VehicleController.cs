@@ -7,7 +7,6 @@ using VHS.Backend.Apis.Responses;
 using VHS.Backend.Entities;
 using VHS.Backend.Repositories.Interfaces;
 using VHS.Utility.Types;
-using VHS.VehicleTest;
 
 namespace VHS.Backend.Controllers
 {
@@ -15,13 +14,11 @@ namespace VHS.Backend.Controllers
     [ApiController]
     public class VehicleController : ControllerBase
     {
-        private readonly IVehicle _vehicle;
         private readonly IDriveLogRepository _driveLogRepository;
         private readonly IVehicleClientApi _vehicleClientApi;
 
-        public VehicleController(IVehicle vehicle, IDriveLogRepository driveLogRepository, IVehicleClientApi vehicleClientApi)
+        public VehicleController(IDriveLogRepository driveLogRepository, IVehicleClientApi vehicleClientApi)
         {
-            _vehicle = vehicle;
             _driveLogRepository = driveLogRepository;
             _vehicleClientApi = vehicleClientApi;
         }

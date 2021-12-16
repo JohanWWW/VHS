@@ -10,7 +10,6 @@ using VHS.Backend.HostedServices;
 using VHS.Backend.HostedServices.Interfaces;
 using VHS.Backend.Repositories;
 using VHS.Backend.Repositories.Interfaces;
-using VHS.VehicleTest;
 
 namespace VHS.Backend
 {
@@ -40,10 +39,7 @@ namespace VHS.Backend
             services.AddSingleton<IAuthorizationClientApi, AuthorizationApi>();
             services.AddSingleton<IUserAccountClientApi, UserAccountApi>();
             services.AddSingleton<IVehicleClientApi, FakeVehicleHookApi>();
-
-            services.AddSingleton<IVehicle, CloudCar>();
             services.AddSingleton<IDriveLogRepository, FakeDriveLogDB>();
-
             services.AddSingleton<IVehicleSimulatorBackgroundService>(factory => vehicleSimImplementation);
         }
 

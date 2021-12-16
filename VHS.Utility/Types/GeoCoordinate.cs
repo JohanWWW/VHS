@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using static System.Math;
 
@@ -13,8 +9,8 @@ namespace VHS.Utility.Types
         private const int EARTH_RADIUS      = 6367;
         private const double DEG_TO_RAD     = PI / 180.0;
 
-        public float Latitude { get; set; }
-        public float Longitude { get; set; }
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
 
         public override bool Equals(object obj)
         {
@@ -39,7 +35,7 @@ namespace VHS.Utility.Types
 
         public static bool operator !=(GeoCoordinate a, GeoCoordinate b) => !a.Equals(b);
 
-        private static double Haversine(float lat1, float lon1, float lat2, float lon2)
+        private static double Haversine(double lat1, double lon1, double lat2, double lon2)
         {
             double dlon = (lon2 - lon1) * DEG_TO_RAD;
             double dlat = (lat2 - lat1) * DEG_TO_RAD;

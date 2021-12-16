@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using VHS.Utility.Types;
-using VHS.VehicleTest;
 
 namespace VHS.Backend.Apis.Responses
 {
@@ -16,6 +12,7 @@ namespace VHS.Backend.Apis.Responses
         public bool IsLocked { get; set; }
         public bool IsAlarmActivated { get; set; }
         public bool IsDriveInProgress { get; set; }
+        public double BatteryLevel { get; set; }
 
         public class TirePressure
         {

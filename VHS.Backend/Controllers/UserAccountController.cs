@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
-using VHS.Backend.Apis;
 using VHS.Backend.Apis.Interfaces;
 using VHS.Backend.Apis.Responses;
 using VHS.Backend.Entities;
@@ -45,9 +45,8 @@ namespace VHS.Backend.Controllers
         }
 
         [HttpGet("Journal/{vin}")]
-
         public async Task<ActionResult<IList<ResultdriveJournalEntity>>> GetDriveJournal([FromRoute] string vin, [FromQuery] DateTime? start, [FromQuery] DateTime? end) { 
-        var result = await _driveLogRepoitory.GetDriveJournal(vin, start, end);
+            var result = _driveLogRepoitory.GetDriveJournal(vin, start, end).ToList();
             return Ok(result);
         }
     }

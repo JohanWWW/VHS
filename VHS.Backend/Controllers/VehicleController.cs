@@ -4,12 +4,14 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using VHS.Backend.Apis.Interfaces;
 using VHS.Backend.Apis.Responses;
+using VHS.Backend.Attributes;
 using VHS.Backend.Entities;
 using VHS.Backend.Repositories.Interfaces;
 using VHS.Utility.Types;
 
 namespace VHS.Backend.Controllers
 {
+    [VHSAuthorization]
     [Route("api/vehicle")]
     [ApiController]
     public class VehicleController : ControllerBase
@@ -21,13 +23,6 @@ namespace VHS.Backend.Controllers
         {
             _driveLogRepository = driveLogRepository;
             _vehicleClientApi = vehicleClientApi;
-        }
-
-        [Obsolete("Use " + nameof(Ping) + " instead")]
-        [HttpGet("blinkAndBeep/{vin}")]
-        public async Task<ActionResult<bool>> Beep([FromRoute] string vin)
-        {
-            return Ok(await _vehicleClientApi.Beep(vin) && await _vehicleClientApi.Blink(vin));
         }
 
         /// <summary>
@@ -64,13 +59,6 @@ namespace VHS.Backend.Controllers
         public async Task<ActionResult<IList<VehicleLogEntity>>> GetLogs([FromRoute] string vin, [FromQuery] DateTime? start, [FromQuery] DateTime? end)
         {
             return Ok(await _driveLogRepository.GetLogs(vin, start, end));
-        }
-
-        [Obsolete("Logs are posted by the car not the client")]
-        [HttpPost("logs/{vin}")]
-        public async Task<ActionResult<Guid>> PostLog([FromRoute] string vin, [FromBody] VehicleLogEntity logEntry)
-        {
-            return Ok(await _driveLogRepository.PostLog(vin, logEntry));
         }
     }
 }

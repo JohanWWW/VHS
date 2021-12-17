@@ -19,12 +19,16 @@ namespace VHS.Backend.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<UserEntity>> Authorize([FromQuery] string username, [FromQuery] string password)
+        public ActionResult<UserEntity> Authorize([FromQuery] string username, [FromQuery] string password)
         {
-            var response = await _authorizationClientApi.Authorize(username, password);
+            var response = _authorizationClientApi.Authorize(username, password);
 
             if (!response.IsStatusSuccess)
+            {
                 return new StatusCodeResult((int)response.StatusCode);
+            }
+
+            ServiceProvider.Current.InMemoryStorage.AddToken(response.AccessToken, response.Id);
 
             return Ok(AutoMapper.Map<UserClientResponse, UserEntity>(response));
         }

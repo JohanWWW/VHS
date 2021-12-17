@@ -125,7 +125,7 @@ namespace VHS.Backend.HostedServices
                         sb.Append("Körsträcka mellan punkter:\t").Append(Math.Round(Distance * 1000, 1)).Append(" m").AppendLine();
                         sb.Append("Total körsträcka:\t\t\t").Append(Math.Round(TotalDistance, 1)).Append(" km").AppendLine();
                         sb.Append("Förfluten tid:\t\t\t\t").Append(ts - _simulationStart).Append(" (").Append(Math.Round((ts - _simulationStart).TotalSeconds, 1)).Append(" s)").AppendLine();
-                        sb.Append("Snitthastighet: ").Append(speeds.Average()).AppendLine(" km/h");
+                        sb.Append("Snitthastighet:\t\t\t\t").Append(speeds.Average()).AppendLine(" km/h\n");
 
                         System.Diagnostics.Debug.Write(sb.ToString());
 

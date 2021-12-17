@@ -1,5 +1,5 @@
-﻿using System;
-using System.Net.Http;
+﻿using RestSharp;
+using System;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Web;
@@ -10,35 +10,32 @@ namespace VHS.Backend.Apis
 {
     public class AuthorizationApi : IAuthorizationClientApi
     {
-        private readonly HttpClient _client;
+        private readonly IRestClient _restClient;
 
         ~AuthorizationApi()
         {
-            // Dispose managed resources
-            _client.Dispose();
         }
 
         public AuthorizationApi()
         {
-            _client = new HttpClient()
-            {
-                BaseAddress = new("https://kyhdev.hiqcloud.net/")
-            };
+            _restClient = new RestClient("https://kyhdev.hiqcloud.net/");
         }
 
-        public async Task<UserClientResponse> Authorize(string username, string password)
+        public UserClientResponse Authorize(string username, string password)
         {
-            Uri requestUri = new($"api/cds/v1.0/user/authenticate?userName={HttpUtility.UrlEncode(username)}&pwd={HttpUtility.UrlEncode(password)}", UriKind.Relative);
-            HttpResponseMessage response = await _client.GetAsync(requestUri);
+            var request = new RestRequest($"api/cds/v1.0/user/authenticate?userName={HttpUtility.UrlEncode(username)}&pwd={HttpUtility.UrlEncode(password)}", Method.GET);
+            var response = _restClient.Execute(request);
 
-            if (!response.IsSuccessStatusCode)
+            if (!response.IsSuccessful)
+            {
                 return new UserClientResponse
                 {
                     StatusCode = response.StatusCode,
-                    StatusMessage = await response.Content.ReadAsStringAsync()
+                    StatusMessage = response.Content
                 };
+            }
 
-            UserClientResponse clientResponse = JsonSerializer.Deserialize<UserClientResponse>(await response.Content.ReadAsStringAsync(), new JsonSerializerOptions
+            UserClientResponse clientResponse = JsonSerializer.Deserialize<UserClientResponse>(response.Content, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
             });
@@ -46,6 +43,17 @@ namespace VHS.Backend.Apis
             clientResponse.StatusMessage = null;
 
             return clientResponse;
+        }
+
+        public bool ValidateToken(Guid userId, string accessToken)
+        {
+            var request = new RestRequest($"/api/cds/v1.0/user/{userId}/validate?token={HttpUtility.UrlEncode(accessToken)}", Method.GET);
+            var response = _restClient.Execute(request);
+            if (response.IsSuccessful)
+            {
+                return response.Content.Equals("true", StringComparison.OrdinalIgnoreCase);
+            }
+            return false;
         }
     }
 }

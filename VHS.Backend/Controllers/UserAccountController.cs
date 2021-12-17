@@ -5,12 +5,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using VHS.Backend.Apis.Interfaces;
 using VHS.Backend.Apis.Responses;
+using VHS.Backend.Attributes;
 using VHS.Backend.Entities;
 using VHS.Backend.Repositories.Interfaces;
 using VHS.Utility.Mapping;
 
 namespace VHS.Backend.Controllers
 {
+    [VHSAuthorization]
     [Route("api/useraccount")]
     [ApiController]
     public class UserAccountController : ControllerBase

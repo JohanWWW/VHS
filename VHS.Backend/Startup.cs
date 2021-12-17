@@ -10,6 +10,8 @@ using VHS.Backend.HostedServices;
 using VHS.Backend.HostedServices.Interfaces;
 using VHS.Backend.Repositories;
 using VHS.Backend.Repositories.Interfaces;
+using VHS.Backend.Storage;
+using VHS.Backend.Storage.Interfaces;
 
 namespace VHS.Backend
 {
@@ -41,6 +43,7 @@ namespace VHS.Backend
             services.AddSingleton<IVehicleClientApi, FakeVehicleHookApi>();
             services.AddSingleton<IDriveLogRepository, FakeDriveLogDB>();
             services.AddSingleton<IVehicleSimulatorBackgroundService>(factory => vehicleSimImplementation);
+            services.AddSingleton<IAuthorizationStorage, AuthorizationStorage>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

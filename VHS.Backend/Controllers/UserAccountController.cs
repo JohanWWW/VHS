@@ -8,6 +8,7 @@ using VHS.Backend.Apis.Responses;
 using VHS.Backend.Attributes;
 using VHS.Backend.Entities;
 using VHS.Backend.Repositories.Interfaces;
+using VHS.Backend.Storage.Interfaces;
 using VHS.Utility.Mapping;
 
 namespace VHS.Backend.Controllers
@@ -21,7 +22,6 @@ namespace VHS.Backend.Controllers
         private readonly IVehicleClientApi _vehicleClientApi;
         private readonly IDriveLogRepository _driveLogRepoitory;
 
-
         public UserAccountController(IUserAccountClientApi userAccountClientApi, IVehicleClientApi vehicleClientApi, IDriveLogRepository driveLogRepository)
         {
             _userAccountClientApi = userAccountClientApi;
@@ -29,21 +29,21 @@ namespace VHS.Backend.Controllers
             _driveLogRepoitory = driveLogRepository;
         }
 
-        [HttpPost("register/{vin}/{customerId}/{accessToken}")]
-        public async Task<ActionResult<VehicleEntity>> Register([FromRoute] string vin, [FromRoute] Guid customerId, [FromRoute] string accessToken)
+        [HttpPost("register/{vin}/{customerId}")]
+        public async Task<ActionResult<VehicleEntity>> Register([FromRoute] string vin, [FromRoute] Guid customerId, [FromHeader(Name = "x-vhs-auth")] string accessToken)
         {
-            VehicleClientResponse response;
-            if (await _vehicleClientApi.AddVehicle(vin))
+            VehicleClientResponse response = await _userAccountClientApi.Register(customerId, vin, accessToken);
+            if (response.IsStatusSuccess)
             {
-                response = await _userAccountClientApi.Register(customerId, vin, accessToken);
+                if (await _vehicleClientApi.AddVehicle(vin))
+                {
+                    return Ok(AutoMapper.Map<VehicleClientResponse, VehicleEntity>(response));
+                }
 
-                if (!response.IsStatusSuccess)
-                    return new StatusCodeResult((int)response.StatusCode);
-
-                return Ok(AutoMapper.Map<VehicleClientResponse, VehicleEntity>(response));
+                return Conflict("Vehicle already registered");
             }
 
-            return BadRequest();
+            return new StatusCodeResult(500);
         }
 
         [HttpGet("Journal/{vin}")]

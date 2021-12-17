@@ -179,10 +179,10 @@ insert into State (Latitude, Longitude, Mileage, FrontLeftTire, FrontRightTire, 
                 .AddParameter("$latitude", .0f)
                 .AddParameter("$longitude", .0f)
                 .AddParameter("$mileage", .0f)
-                .AddParameter("$frontLeftTire", .0f)
-                .AddParameter("$frontRightTire", .0f)
-                .AddParameter("$backLeftTire", .0f)
-                .AddParameter("$backRightTire", .0f)
+                .AddParameter("$frontLeftTire", 2.5f)
+                .AddParameter("$frontRightTire", 2.5f)
+                .AddParameter("$backLeftTire", 2.5f)
+                .AddParameter("$backRightTire", 2.5f)
                 .AddParameter("$isLocked", false)
                 .AddParameter("$isAlarmActivated", false)
                 .AddParameter("$isDriveInProgress", false)
@@ -368,6 +368,42 @@ create table State (
 );
 ")
                 .ExecuteNonQuery();
+        }
+
+        public async Task<bool> SetIsDriving(string vin, bool bit)
+        {
+            long stateId;
+
+            stateId = (long)await _connection
+                .CreateCommand("select StateId from Vehicle where Vin = $vin")
+                .AddParameter("$vin", vin)
+                .ExecuteScalarAsync();
+
+            _ = await _connection
+                .CreateCommand("update State set IsDriveInProgress = $bit where Id = $stateId")
+                .AddParameter("$bit", bit)
+                .AddParameter("$stateId", stateId)
+                .ExecuteNonQueryAsync();
+
+            return true;
+        }
+
+        public async Task<bool> ResetBattery(string vin)
+        {
+            long stateId;
+
+            stateId = (long)await _connection
+                .CreateCommand("select StateId from Vehicle where Vin = $vin")
+                .AddParameter("$vin", vin)
+                .ExecuteScalarAsync();
+
+            _ = await _connection
+                .CreateCommand("update State set BatteryLevel = $level where Id = $stateId")
+                .AddParameter("$level", 1d)
+                .AddParameter("$stateId", stateId)
+                .ExecuteNonQueryAsync();
+
+            return true;
         }
 
         #region Scoped Types

@@ -1,7 +1,5 @@
 ﻿using RestSharp;
 using System;
-using System.Text.Json;
-using System.Threading.Tasks;
 using System.Web;
 using VHS.Backend.Apis.Interfaces;
 using VHS.Backend.Apis.Responses;
@@ -24,7 +22,7 @@ namespace VHS.Backend.Apis
         public UserClientResponse Authorize(string username, string password)
         {
             var request = new RestRequest($"api/cds/v1.0/user/authenticate?userName={HttpUtility.UrlEncode(username)}&pwd={HttpUtility.UrlEncode(password)}", Method.GET);
-            var response = _restClient.Execute(request);
+            var response = _restClient.Execute<UserClientResponse>(request);
 
             if (!response.IsSuccessful)
             {
@@ -35,14 +33,11 @@ namespace VHS.Backend.Apis
                 };
             }
 
-            UserClientResponse clientResponse = JsonSerializer.Deserialize<UserClientResponse>(response.Content, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
-            clientResponse.StatusCode = response.StatusCode;
-            clientResponse.StatusMessage = null;
+            UserClientResponse data = response.Data;
+            data.StatusCode = response.StatusCode;
+            data.StatusMessage = null;
 
-            return clientResponse;
+            return data;
         }
 
         public bool ValidateToken(Guid userId, string accessToken)

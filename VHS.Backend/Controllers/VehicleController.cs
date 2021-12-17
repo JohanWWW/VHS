@@ -39,7 +39,7 @@ namespace VHS.Backend.Controllers
 
             double distance = GeoCoordinate.GetMetricDistance(clientPosition, (GeoCoordinate)vehiclePosition);
             if (distance > 0.200d)
-                return NotFound($"Too far from car");
+                return Forbid($"Too far from car");
 
             return Ok(await _vehicleClientApi.Beep(vin) && await _vehicleClientApi.Blink(vin));
         }

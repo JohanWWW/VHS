@@ -2,14 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using VHS.Backend.Storage.Interfaces;
 
 namespace VHS.Backend.Storage
 {
-    public class InMemoryStorage
+    public class AuthorizationStorage : IAuthorizationStorage
     {
         private readonly IDictionary<string, Guid> _tokens;
 
-        public InMemoryStorage()
+        public AuthorizationStorage()
         {
             _tokens = new Dictionary<string, Guid>();
         }

@@ -5,7 +5,7 @@ using VHS.Utility.Types;
 
 namespace VHS.Backend.Apis.Interfaces
 {
-    public interface IVehicleClientApi
+    public interface IVehicleClientApi : IVehicleClientApiDebug
     {
         Task<VehicleStatusResponse> GetStatus(string vin);
         Task<GeoCoordinate?> GetCurrentPosition(string vin);
@@ -14,5 +14,13 @@ namespace VHS.Backend.Apis.Interfaces
         Task<bool> AddVehicle(string vin);
         Task<bool> Exists(string vin);
         IEnumerable<string> GetVins();
+    }
+
+    public interface IVehicleClientApiDebug
+    {
+#if DEBUG
+        Task<bool> SetIsDriving(string vin, bool bit);
+        Task<bool> ResetBattery(string vin);
+#endif
     }
 }

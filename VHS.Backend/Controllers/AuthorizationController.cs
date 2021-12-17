@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using VHS.Backend.Apis.Interfaces;
 using VHS.Backend.Apis.Responses;
 using VHS.Backend.Entities;
+using VHS.Backend.Storage.Interfaces;
 using VHS.Utility.Mapping;
 
 namespace VHS.Backend.Controllers
@@ -12,10 +13,12 @@ namespace VHS.Backend.Controllers
     public class AuthorizationController : ControllerBase
     {
         private readonly IAuthorizationClientApi _authorizationClientApi;
+        private readonly IAuthorizationStorage _authorizationStorage;
 
-        public AuthorizationController(IAuthorizationClientApi authorizationClientApi)
+        public AuthorizationController(IAuthorizationClientApi authorizationClientApi, IAuthorizationStorage authorizationStorage)
         {
             _authorizationClientApi = authorizationClientApi;
+            _authorizationStorage = authorizationStorage;
         }
 
         [HttpGet]
@@ -28,7 +31,7 @@ namespace VHS.Backend.Controllers
                 return new StatusCodeResult((int)response.StatusCode);
             }
 
-            ServiceProvider.Current.InMemoryStorage.AddToken(response.AccessToken, response.Id);
+            _authorizationStorage.AddToken(response.AccessToken, response.Id);
 
             return Ok(AutoMapper.Map<UserClientResponse, UserEntity>(response));
         }
